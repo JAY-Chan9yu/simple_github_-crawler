@@ -8,7 +8,6 @@ from requests import Response
 
 
 def retry_handle(username, year) -> Optional[Response]:
-    # todo: 공통 util 로 분리
     retry_cnt = 0
     res = None
 
@@ -28,24 +27,27 @@ def retry_handle(username, year) -> Optional[Response]:
     return res
 
 
-def get_continuous_commit_day(username: str) -> (bool, int):
+def get_streak(username: str) -> (bool, int):
     """
-    1일 1커밋을 얼마나 지속했는지 day count 하는 함수
+    :param username: github username
+    :return:
+        - is_completed: Whether the crawl was successful
+        - streak_count: streak commit count
     """
-    now = datetime.now() - timedelta(days=1)  # 업데이트 당일 전날부터 체크
-    continuous_count = 0
-    is_commit_aborted = False  # 1일 1커밋이 중단 됐는지
-    is_completed = True  # 크롤링이 정상적으로 완료 되었는지
+    now = datetime.now() - timedelta(days=1)  # check from the day before
+    streak_count = 0
+    is_commit_aborted = False
+    is_completed = True
 
-    for year in range(now.year, 2007, -1):  # 2007년에 깃허브 오픈
-        time.sleep(0.1)  # 429 에러 때문에 약간의 sleep 을 준다.
+    for year in range(now.year, 2007, -1):  # GitHub opened in 2007
+        time.sleep(0.1)  # 429 error prevention
         res = retry_handle(username, year)
 
         if not res:
             is_completed = False
             break
 
-        soup = BeautifulSoup(res.text, "lxml")  # html.parse 보다 lxml이 더 빠르다고 한다
+        soup = BeautifulSoup(res.text, "lxml")  # lxml faster than html.parse
         for rect in reversed(soup.select('rect')):
             if not rect.get('data-date') or now.date() < datetime.strptime(rect.get('data-date'), '%Y-%m-%d').date():
                 continue
@@ -54,9 +56,9 @@ def get_continuous_commit_day(username: str) -> (bool, int):
                 is_commit_aborted = True
                 break
 
-            continuous_count += 1
+            streak_count += 1
 
         if is_commit_aborted:
             break
 
-    return is_completed, continuous_count
+    return is_completed, streak_count
